@@ -25,6 +25,7 @@ jobs:
           done < <(git -c core.quotepath=off log --name-only --diff-filter=AM --format= -- '*.zip')
           [ -n "$ZIP" ] || ZIP="$(find . -maxdepth 1 -name '*.zip' | head -n 1)"
           echo "Using zip: $ZIP"
+          sha256sum "$ZIP"
           rm -rf project && mkdir -p project
           unzip -q "$ZIP" -d project
           ROOT="$(dirname "$(find project -name settings.gradle.kts | head -n 1)")"
@@ -36,12 +37,21 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - uses: android-actions/setup-android@v3
+      - name: Prepare the Android SDK
+        shell: bash
+        run: |
+          # GitHub's ubuntu-24.04 image already contains the Android SDK (including platform android-36.1 and
+          # build-tools 36.x), so no extra action is needed. Just accept the licences so Gradle may use it.
+          java -version
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - name: Install Gradle 9.3.1
         shell: bash
         run: |
-          curl -fsSL -o "$RUNNER_TEMP/gradle.zip" https://services.gradle.org/distributions/gradle-9.3.1-bin.zip
+          curl -fsSL -o "$RUNNER_TEMP/gradle.zip" https://github.com/gradle/gradle-distributions/releases/download/v9.3.1/gradle-9.3.1-bin.zip \
+            || curl -fsSL -o "$RUNNER_TEMP/gradle.zip" https://services.gradle.org/distributions/gradle-9.3.1-bin.zip
           unzip -q "$RUNNER_TEMP/gradle.zip" -d "$HOME"
           echo "$HOME/gradle-9.3.1/bin" >> "$GITHUB_PATH"
 
